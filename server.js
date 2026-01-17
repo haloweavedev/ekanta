@@ -264,14 +264,20 @@ app.get('/', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`
-  ╔═══════════════════════════════════════╗
-  ║           E K A N T A                 ║
-  ║     Transformation Journal            ║
-  ║                                       ║
-  ║   Server running on port ${PORT}         ║
-  ║   http://localhost:${PORT}               ║
-  ╚═══════════════════════════════════════╝
-  `);
-});
+// For Vercel/Serverless export
+export default app;
+
+// Only listen if run directly
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  app.listen(PORT, () => {
+    console.log(`
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║           E K A N T A                                         ║
+    ║     Transformation Journal                                    ║
+    ║                                                               ║
+    ║   Server running on port ${PORT}                              ║
+    ║   http://localhost:${PORT}                                    ║
+    ╚═══════════════════════════════════════════════════════════════╝
+    `);
+  });
+}
