@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ekanta — AI Interaction Test Suite</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #0e0e14;
+      --bg-card: #16161f;
+      --text-primary: #e8e6e3;
+      --text-secondary: #8a8a94;
+      --accent-gold: #c9a227;
+      --accent-blue: #4a9eff;
+      --border: #2a2a35;
+      --font-display: 'Cormorant Garamond', serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      color: var(--accent-gold);
+      font-size: 1.5rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--accent-gold);
+      background: transparent;
+      color: var(--accent-gold);
+      cursor: pointer;
+      font-family: var(--font-body);
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(201, 162, 39, 0.1);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 20px;
+      border-radius: 12px;
+      line-height: 1.6;
+      animation: fadeIn 0.5s ease;
+      position: relative;
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+    }
+
+    /* Oracle Styles */
+    .message.oracle {
+      align-self: flex-end;
+      background: rgba(201, 162, 39, 0.05);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-gold);
+    }
+
+    .message.oracle .message-header {
+      color: var(--accent-gold);
+      flex-direction: row-reverse;
+    }
+
+    /* Persona (Alex) Styles */
+    .message.persona {
+      align-self: flex-start;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent-blue);
+    }
+
+    .message.persona .message-header {
+      color: var(--accent-blue);
+    }
+
+    .status {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      padding: 10px;
+      font-style: italic;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .typing-indicator span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: currentColor;
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+      margin: 0 2px;
+    }
+
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ekanta Test Suite: AI Interaction Lab</h1>
+    <div class="controls">
+      <div id="status-indicator" class="status">Ready to initialize...</div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-right: 15px;">
+        <label for="turns-input" style="font-size: 0.8rem; color: var(--text-secondary);">MAX TURNS:</label>
+        <input type="number" id="turns-input" value="6" min="1" max="50" style="width: 60px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); padding: 4px; border-radius: 4px;">
+      </div>
+      <button id="start-btn" onclick="startTest()">Start Interaction Loop</button>
+      <button onclick="window.location.reload()">Reset</button>
+    </div>
+  </header>
+
+  <div class="chat-container" id="chat-container">
+    <!-- Messages will appear here -->
+  </div>
+
+  <script>
+    let turnCount = 0;
+    let maxTurns = 6;
+    let conversationHistory = []; // Shared history for context
+    let isRunning = false;
+
+    // Initial trigger for the Persona
+    const INITIAL_PROMPT = "Start the conversation by being honest about how your week is going. You're feeling a bit drained. Keep it casual.";
+
+    async function startTest() {
+      if (isRunning) return;
+      
+      maxTurns = parseInt(document.getElementById('turns-input').value) || 6;
+      isRunning = true;
+      document.getElementById('start-btn').disabled = true;
+      document.getElementById('chat-container').innerHTML = '';
+      turnCount = 0;
+      conversationHistory = [];
+      
+      updateStatus("Initializing Persona (Alex)...");
+      
+      // Step 1: Trigger Alex
+      try {
+        await runPersonaTurn([{ role: 'user', content: INITIAL_PROMPT }]);
+      } catch (e) {
+        console.error(e);
+        updateStatus("Error occurred.");
+      }
+    }
+
+    async function runPersonaTurn(messagesContext) {
+      if (turnCount >= maxTurns) {
+        finishTest();
+        return;
+      }
+
+      showTyping('persona');
+      
+      try {
+        const response = await fetch('/api/persona', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: messagesContext })
+        });
+        
+        const data = await response.json();
+        removeTyping();
+        
+        if (data.success) {
+          const content = data.message;
+          addMessage('persona', 'Alex (Skeptic)', content);
+          
+          // Add to shared history
+          conversationHistory.push({ role: 'user', content: content }); // Alex acts as 'user' to the Oracle
+          
+          // Trigger Oracle
+          updateStatus("Oracle is contemplating...");
+          setTimeout(() => runOracleTurn(), 1000);
+        }
+      } catch (err) {
+        console.error(err);
+        removeTyping();
+        updateStatus("Connection failed.");
+      }
+    }
+
+    async function runOracleTurn() {
+      showTyping('oracle');
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: conversationHistory,
+            context: {
+              stage: 'nigredo',
+              vision: 'Not yet defined',
+              streak: 0,
+              lunar: 'Waxing Crescent'
+            }
+          })
+        });
+
+        const data = await response.json();
+        removeTyping();
+
+        if (data.success) {
+          const content = data.message;
+          addMessage('oracle', 'The Oracle', content);
+
+          // Add to shared history
+          conversationHistory.push({ role: 'assistant', content: content }); // Oracle is 'assistant'
+
+          // Prepare context for Alex's next turn
+          // We need to flip the roles for Alex: Oracle's output is 'user' input for Alex?
+          // Actually, for Alex's persona API, we should feed him the conversation so far.
+          // BUT, Alex's system prompt expects him to be the assistant answering... wait.
+          // Let's re-read the Persona endpoint. 
+          // "You are Alex... You are talking to a guide."
+          // So if we send messages to Alex, the 'user' role in the messages array should be the Guide (Oracle).
+          
+          // Construct Alex's view of history:
+          // He needs to see: 
+          // User (Guide): "Hello..."
+          // Assistant (Alex): "Hi..."
+          
+          // Let's map conversationHistory (which is formatted for Oracle) to Alex's perspective
+          const alexHistory = conversationHistory.map(msg => {
+            if (msg.role === 'user') return { role: 'assistant', content: msg.content }; // Alex said this
+            if (msg.role === 'assistant') return { role: 'user', content: msg.content }; // Oracle said this
+            return msg;
+          });
+
+          turnCount++;
+          updateStatus(`Turn ${turnCount}/${maxTurns} complete. Alex is reading...`);
+          setTimeout(() => runPersonaTurn(alexHistory), 2000);
+        }
+      } catch (err) {
+        console.error(err);
+        removeTyping();
+        updateStatus("Oracle connection failed.");
+      }
+    }
+
+    function addMessage(type, name, text) {
+      const container = document.getElementById('chat-container');
+      const div = document.createElement('div');
+      div.className = `message ${type}`;
+      div.innerHTML = `
+        <div class="message-header">
+          <span>${name}</span>
+        </div>
+        <div>${text.replace(/\n/g, '<br>')}</div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function showTyping(type) {
+      const container = document.getElementById('chat-container');
+      const div = document.createElement('div');
+      div.id = 'typing-indicator';
+      div.className = `message ${type}`;
+      div.style.minWidth = '100px';
+      div.innerHTML = `
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function removeTyping() {
+      const el = document.getElementById('typing-indicator');
+      if (el) el.remove();
+    }
+
+    function updateStatus(text) {
+      document.getElementById('status-indicator').textContent = text;
+    }
+
+    function finishTest() {
+      isRunning = false;
+      document.getElementById('start-btn').disabled = false;
+      updateStatus("Test suite completed successfully.");
+      addMessage('status', 'System', '--- Interaction Loop Finished ---');
+    }
+  </script>
+</body>
+</html>
